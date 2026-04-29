@@ -11,7 +11,7 @@ const configApp = {
     {
       "radio_name": "La Fronterísima",
       "radio_genre": "Variedad",
-      "radio_url": "https://az.azurafree.eu/listen/la_fronterisima/radio.mp3",
+      "radio_url": "https://virtual5.emisorasvirtuales.com/listen/la_fronterisima/live",
       "radio_image_url": "https://i.postimg.cc/4dpXTctM/Pics-Sizer-512x512.png",
       "radio_background": "false",
       "radio_background_url": "https://i.postimg.cc/yNVmRh6Q/radio-background.jpg",
