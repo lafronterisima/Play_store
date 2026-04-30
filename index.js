@@ -8,7 +8,7 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-const VALID_API_KEY = "azura_key";
+const VALID_API_KEY = process.env.API_KEY || "azura_key";
 
 // Middleware para seguridad
 const checkApiKey = (req, res, next) => {
