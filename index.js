@@ -1,17 +1,16 @@
 const express = require('express');
 const cors = require('cors');
-
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
-// ======= CONFIGURACIÓN COMPLETA DE TU RADIO =======
 const configApp = {
   "radio": [
     {
       "radio_name": "La Fronterísima",
       "radio_genre": "Variedad",
-      "https://az.azurafree.eu/listen/la_fronterisima/radio.mp3",
+      "radio_url": "https://az.azurafree.eu/listen/la_fronterisima/radio.mp3", // <-- Clave añadida
       "radio_image_url": "https://i.postimg.cc/4dpXTctM/Pics-Sizer-512x512.png",
       "radio_background": "false",
       "radio_background_url": "https://i.postimg.cc/yNVmRh6Q/radio-background.jpg",
@@ -26,7 +25,7 @@ const configApp = {
     {
       "channel_name": "La Fronterísima TV",
       "channel_url": "https://live20.bozztv.com/giatvplayout7/giatv-209411/playlist.m3u8",
-      "channel_description": "<style>p {margin-bottom: 1.2em; text-align: justify; font-size: 13px;}</style><p>La Fronterísima es una plataforma digital moderna que ofrece una propuesta musical diversa, conectando artistas hispanoamericanos y del mundo para brindar una experiencia sonora auténtica, envolvente y llena de emociones.</p>\n <p>Una alternativa musical diseñada para llegar al corazón de cada oyente, con ritmos que inspiran, motivan y acompañan cada momento del día.</p>\n <p>Descubre, comparte y vibra con los contenidos exclusivos, entrevistas, playlists y una programación variada e innovadora, disponible en cualquier lugar y en cualquier dispositivo las 24 horas, para que la música siempre te acompañe sin límites.</p>",
+      "channel_description": "La Fronterísima es una plataforma digital moderna...",
       "channel_thumbnail": "https://i.postimg.cc/3wckw2kF/IMG-20251228-WA0012.jpg",
       "channel_vast_ads_tag_url": ""
     }
@@ -78,16 +77,13 @@ const configApp = {
   ]
 };
 
-// ======= LA RUTA QUE SIMULA EL ARCHIVO PHP =======
 app.get('/api/get_stations.php', (req, res) => {
-    // Esto responde exactamente igual que si fuera un archivo .php real
     res.json(configApp);
 });
 
-// Ruta raíz para prueba
 app.get('/', (req, res) => {
     res.send("API Central de La Fronterísima activa ✅");
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Bridge de Radio corriendo en puerto ${PORT}`));
+app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Servidor en puerto ${PORT}`));
