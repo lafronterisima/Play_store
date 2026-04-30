@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
+const fs = require('fs'); // Módulo para leer archivos
 const path = require('path');
 
 const app = express();
@@ -9,41 +9,36 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
-// Aquí leemos la API_KEY desde Render o usamos la que pusiste por defecto
-const VALID_API_KEY = process.env.API_KEY || "7174dfea01d88d15:97937cd553c3c76145ab3ed92cc4c4ab";
+// ======= RUTA PARA LA APP =======
 
-// Middleware de seguridad
-const checkApiKey = (req, res, next) => {
-    // La App suele enviarlo como parámetro 'api_key' en la URL
-    const userKey = req.query.api_key || req.headers['x-api-key'];
-    
-    if (userKey === VALID_API_KEY) {
-        next();
-    } else {
-        console.log(`Intento de acceso fallido con llave: ${userKey}`);
-        res.status(403).json({ status: "error", message: "Acceso no autorizado" });
-    }
-};
-
-// ESTA ES LA RUTA QUE BUSCA TU APP
-// Al unir SERVER_URL + "get_stations.php" se activa este endpoint
-app.get('/api/get_stations.php', checkApiKey, (req, res) => {
+app.get('/api/get_stations.php', (req, res) => {
+    // Definimos la ruta del archivo radios.json
     const filePath = path.join(__dirname, 'radios.json');
+
+    // Leemos el archivo de forma asíncrona
     fs.readFile(filePath, 'utf8', (err, data) => {
-        if (err) return res.status(500).json({status: "error", message: "No se encontró radios.json"});
-        res.status(200).json(JSON.parse(data));
+        if (err) {
+            console.error("Error al leer radios.json:", err);
+            return res.status(500).json({ status: "error", message: "No se pudo cargar la configuración" });
+        }
+
+        try {
+            // Convertimos el texto del archivo a un objeto JSON
+            const configApp = JSON.parse(data);
+            res.status(200).json(configApp);
+        } catch (parseErr) {
+            console.error("Error al procesar JSON:", parseErr);
+            res.status(500).json({ status: "error", message: "Formato de archivo inválido" });
+        }
     });
 });
 
-// Ruta de cortesía para /api
-app.get('/api', (req, res) => {
-    res.send("API de Radio activa. Endpoint: /get_stations.php");
-});
-
+// Ruta raíz
 app.get('/', (req, res) => {
-    res.send('Servidor de La Fronterísima funcionando correctamente ✅');
+  res.send('Servidor de La Fronterisima funcionando 📻');
 });
 
+// Inicio del servidor optimizado para Render
 app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 Servidor listo para la App en el puerto ${PORT}`);
+  console.log(`🚀 Servidor leyendo radios.json en el puerto ${PORT}`);
 });
