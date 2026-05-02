@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs').promises; // Usar versión promesa para mejor rendimiento
+const fs = require('fs').promises;
 const path = require('path');
 
 const app = express();
@@ -32,7 +32,10 @@ async function readRadiosConfig() {
         cachedData = config;
         cacheTime = Date.now();
         
-        console.log('✅ radios.json cargado correctamente');
+        // Contar emisoras
+        const radioCount = config.radio ? config.radio.length : 0;
+        console.log(`✅ radios.json cargado correctamente - ${radioCount} emisora(s) encontrada(s)`);
+        
         return config;
     } catch (err) {
         console.error("❌ Error al leer radios.json:", err);
@@ -60,7 +63,10 @@ app.get('/api/get_stations.php', async (req, res) => {
             _metadata: {
                 timestamp: new Date().toISOString(),
                 server: "Render - La Fronterísima",
-                version: "1.0.0"
+                version: "1.0.0",
+                total_radios: config.radio ? config.radio.length : 0,
+                total_videos: config.video ? config.video.length : 0,
+                total_socials: config.socials ? config.socials.length : 0
             }
         };
         
@@ -84,14 +90,66 @@ app.get('/api/stations', async (req, res) => {
     }
 });
 
-// Ruta para obtener solo una estación específica
-app.get('/api/station/:id', async (req, res) => {
+// Ruta para obtener solo las radios
+app.get('/api/radios', async (req, res) => {
     try {
         const config = await readRadiosConfig();
-        const stationId = req.params.id;
+        res.status(200).json({ 
+            radios: config.radio || [],
+            count: config.radio ? config.radio.length : 0
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Ruta para obtener solo videos
+app.get('/api/videos', async (req, res) => {
+    try {
+        const config = await readRadiosConfig();
+        res.status(200).json({ 
+            videos: config.video || [],
+            count: config.video ? config.video.length : 0
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Ruta para obtener redes sociales
+app.get('/api/socials', async (req, res) => {
+    try {
+        const config = await readRadiosConfig();
+        res.status(200).json({ 
+            socials: config.socials || [],
+            count: config.socials ? config.socials.length : 0
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Ruta para obtener settings
+app.get('/api/settings', async (req, res) => {
+    try {
+        const config = await readRadiosConfig();
+        res.status(200).json({ 
+            settings: config.settings ? config.settings[0] : {},
+            ads: config.ads ? config.ads[0] : {}
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Ruta para obtener una radio específica por índice
+app.get('/api/radio/:index', async (req, res) => {
+    try {
+        const config = await readRadiosConfig();
+        const index = parseInt(req.params.index);
         
-        if (config.radios && config.radios[stationId]) {
-            res.json(config.radios[stationId]);
+        if (config.radio && config.radio[index]) {
+            res.json(config.radio[index]);
         } else {
             res.status(404).json({ error: "Radio no encontrada" });
         }
@@ -100,12 +158,12 @@ app.get('/api/station/:id', async (req, res) => {
     }
 });
 
-// Ruta para actualizar el archivo (con autenticación básica)
+// Ruta para actualizar el archivo (con autenticación)
 app.post('/api/update-stations', async (req, res) => {
     const authToken = req.headers.authorization;
     
-    // Validar token simple (cámbialo por una clave segura)
-    if (authToken !== 'Bearer tu_token_secreto_aqui') {
+    // Validar token (cambia esto por una clave segura)
+    if (authToken !== 'Bearer tu_token_secreto_aqui_123') {
         return res.status(401).json({ error: "No autorizado" });
     }
     
@@ -113,8 +171,8 @@ app.post('/api/update-stations', async (req, res) => {
         const newData = req.body;
         
         // Validar estructura básica
-        if (!newData || !newData.radios) {
-            return res.status(400).json({ error: "Formato inválido" });
+        if (!newData || !newData.radio) {
+            return res.status(400).json({ error: "Formato inválido. Se requiere array 'radio'" });
         }
         
         // Guardar archivo
@@ -124,7 +182,11 @@ app.post('/api/update-stations', async (req, res) => {
         cachedData = null;
         cacheTime = null;
         
-        res.json({ success: true, message: "Archivo actualizado correctamente" });
+        res.json({ 
+            success: true, 
+            message: "Archivo actualizado correctamente",
+            radios_count: newData.radio.length
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -134,7 +196,7 @@ app.post('/api/update-stations', async (req, res) => {
 app.post('/api/reload-cache', async (req, res) => {
     const authToken = req.headers.authorization;
     
-    if (authToken !== 'Bearer tu_token_secreto_aqui') {
+    if (authToken !== 'Bearer tu_token_secreto_aqui_123') {
         return res.status(401).json({ error: "No autorizado" });
     }
     
@@ -149,6 +211,7 @@ app.post('/api/reload-cache', async (req, res) => {
         res.json({ 
             success: true, 
             message: "Caché recargada",
+            radios_count: config.radio ? config.radio.length : 0,
             data: config 
         });
     } catch (err) {
@@ -157,17 +220,30 @@ app.post('/api/reload-cache', async (req, res) => {
 });
 
 // Ruta de health check para Render
-app.get('/health', (req, res) => {
-    res.status(200).json({ 
-        status: "OK", 
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        cache: {
-            active: cachedData !== null,
-            age: cacheTime ? Date.now() - cacheTime : 0
-        }
-    });
+app.get('/health', async (req, res) => {
+    try {
+        const config = await readRadiosConfig();
+        res.status(200).json({ 
+            status: "OK", 
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime(),
+            memory: process.memoryUsage(),
+            cache: {
+                active: cachedData !== null,
+                age: cacheTime ? Math.floor((Date.now() - cacheTime) / 1000) : 0
+            },
+            stats: {
+                radios: config.radio ? config.radio.length : 0,
+                videos: config.video ? config.video.length : 0,
+                socials: config.socials ? config.socials.length : 0
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ 
+            status: "Error", 
+            error: err.message 
+        });
+    }
 });
 
 // Ruta raíz con información
@@ -177,36 +253,31 @@ app.get('/', (req, res) => {
         version: "1.0.0",
         status: "online",
         endpoints: {
-            stations: "/api/get_stations.php",
-            station: "/api/station/:id",
+            all_data: "/api/get_stations.php",
+            radios: "/api/radios",
+            videos: "/api/videos",
+            socials: "/api/socials",
+            settings: "/api/settings",
             health: "/health"
         },
         server: "Render",
-        documentation: "https://github.com/tu-repo"
+        documentation: "https://github.com/lafronterisima/api"
     });
-});
-
-// Ruta para ver el archivo crudo (solo para admin)
-app.get('/admin/raw-config', async (req, res) => {
-    const authToken = req.headers.authorization;
-    
-    if (authToken !== 'Bearer tu_token_secreto_aqui') {
-        return res.status(401).json({ error: "No autorizado" });
-    }
-    
-    try {
-        const data = await fs.readFile(RADIOS_FILE, 'utf8');
-        res.type('application/json').send(data);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
 });
 
 // ======= MIDDLEWARE DE ERRORES =======
 app.use((req, res, next) => {
     res.status(404).json({ 
         error: "Ruta no encontrada",
-        path: req.path 
+        path: req.path,
+        available_endpoints: [
+            "/api/get_stations.php",
+            "/api/radios",
+            "/api/videos",
+            "/api/socials",
+            "/api/settings",
+            "/health"
+        ]
     });
 });
 
@@ -235,27 +306,70 @@ app.listen(PORT, "0.0.0.0", async () => {
     try {
         await fs.access(RADIOS_FILE);
         const config = await readRadiosConfig();
-        const radioCount = config.radios ? Object.keys(config.radios).length : 0;
-        console.log(`✅ radios.json cargado - ${radioCount} emisora(s) encontrada(s)`);
+        const radioCount = config.radio ? config.radio.length : 0;
+        const videoCount = config.video ? config.video.length : 0;
+        const socialCount = config.socials ? config.socials.length : 0;
+        
+        console.log(`✅ Configuración cargada:`);
+        console.log(`   📻 Emisoras: ${radioCount}`);
+        console.log(`   📺 Videos: ${videoCount}`);
+        console.log(`   💬 Redes Sociales: ${socialCount}`);
+        
+        if (radioCount === 0) {
+            console.warn(`⚠️ ADVERTENCIA: No se encontraron emisoras en el archivo`);
+        }
+        
     } catch (err) {
         console.error("❌ ERROR CRÍTICO: No se encuentra el archivo radios.json");
-        console.error("📝 Creando archivo de ejemplo...");
+        console.log("📝 Creando archivo con tus datos...");
         
-        // Crear archivo de ejemplo
+        // Crear archivo con los datos que me proporcionaste
         const ejemploConfig = {
-            radios: {
-                "fronterisima": {
-                    name: "La Fronterísima",
-                    url: "https://virtual5.emisorasvirtuales.com/listen/la_fronterisima/live",
-                    image: "https://ejemplo.com/logo.png",
-                    description: "¡La Rumbera que Manda en el Dial!",
-                    genre: "Salsa, Reggaetón, Vallenato"
+            "radio": [
+                {
+                    "radio_name": "La Fronterísima",
+                    "radio_genre": "Variedad",
+                    "radio_url": "https://virtual5.emisorasvirtuales.com/listen/la_fronterisima/live",
+                    "radio_image_url": "https://i.postimg.cc/4dpXTctM/Pics-Sizer-512x512.png",
+                    "radio_background": "false",
+                    "radio_background_url": "https://i.postimg.cc/yNVmRh6Q/radio-background.jpg",
+                    "blur_radio_background": "true",
+                    "song_metadata": "true",
+                    "image_album_art": "true",
+                    "image_album_art_dynamic_background": "true",
+                    "auto_play": "true"
                 }
-            }
+            ],
+            "video": [
+                {
+                    "channel_name": "La Fronterísima TV",
+                    "channel_url": "https://live20.bozztv.com/giatvplayout7/giatv-209411/playlist.m3u8",
+                    "channel_description": "<p>La Fronterísima es una plataforma digital moderna que ofrece una propuesta musical diversa</p>",
+                    "channel_thumbnail": "https://i.postimg.cc/3wckw2kF/IMG-20251228-WA0012.jpg",
+                    "channel_vast_ads_tag_url": ""
+                }
+            ],
+            "socials": [
+                {
+                    "social_name": "Youtube",
+                    "social_icon": "https://raw.githubusercontent.com/lafronterisima/CloudRadio/main/ic_youtube.png",
+                    "social_url": "https://youtube.com/@lafronterisima"
+                },
+                {
+                    "social_name": "Facebook",
+                    "social_icon": "https://raw.githubusercontent.com/lafronterisima/CloudRadio/main/ic_facebook.png",
+                    "social_url": "https://www.facebook.com/emisora.la.fronterisima"
+                },
+                {
+                    "social_name": "Instagram",
+                    "social_icon": "https://raw.githubusercontent.com/lafronterisima/CloudRadio/main/instagram.png",
+                    "social_url": "https://www.instagram.com/la_fronterisima"
+                }
+            ]
         };
         
         await fs.writeFile(RADIOS_FILE, JSON.stringify(ejemploConfig, null, 2), 'utf8');
-        console.log("✅ Archivo de ejemplo creado");
+        console.log("✅ Archivo creado correctamente con 1 emisora");
     }
 });
 
