@@ -8,19 +8,33 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Leer radios.json
-const radiosData = JSON.parse(
-  fs.readFileSync("./radios.json", "utf8")
-);
+let radiosData = { radios: [] };
 
-// Ruta principal
+try {
+
+  const data = fs.readFileSync("./radios.json", "utf8");
+
+  radiosData = JSON.parse(data);
+
+  console.log("Radios cargadas:", radiosData);
+
+} catch (err) {
+
+  console.error("Error leyendo radios.json", err);
+
+}
+
+// Inicio
 app.get("/", (req, res) => {
+
   res.json({
     status: "online",
     radios: radiosData.radios
   });
+
 });
 
-// Proxy streaming
+// Stream
 app.get("/radio/:id", (req, res) => {
 
   const radio = radiosData.radios.find(
@@ -28,9 +42,11 @@ app.get("/radio/:id", (req, res) => {
   );
 
   if (!radio) {
+
     return res.status(404).json({
       error: "Radio no encontrada"
     });
+
   }
 
   const client = radio.stream_url.startsWith("https")
@@ -41,8 +57,7 @@ app.get("/radio/:id", (req, res) => {
 
     res.writeHead(200, {
       "Content-Type": stream.headers["content-type"] || "audio/mpeg",
-      "Access-Control-Allow-Origin": "*",
-      "icy-metaint": stream.headers["icy-metaint"] || ""
+      "Access-Control-Allow-Origin": "*"
     });
 
     stream.pipe(res);
@@ -60,5 +75,7 @@ app.get("/radio/:id", (req, res) => {
 });
 
 app.listen(PORT, () => {
+
   console.log(`Servidor online puerto ${PORT}`);
+
 });
