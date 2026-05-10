@@ -5,26 +5,22 @@ const app = express();
 
 const PORT = process.env.PORT || 3000;
 
-// Leer archivo
 let radiosData = { radios: [] };
 
 try {
 
-  const raw = fs.readFileSync("./radios.json", "utf8");
-
-  console.log("Contenido radios.json:");
-  console.log(raw);
+  const raw = fs.readFileSync("radios.json", "utf8");
 
   radiosData = JSON.parse(raw);
 
+  console.log(radiosData);
+
 } catch (err) {
 
-  console.error("ERROR LEYENDO JSON:");
   console.error(err);
 
 }
 
-// Ruta principal
 app.get("/", (req, res) => {
 
   res.json({
@@ -35,5 +31,7 @@ app.get("/", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Servidor puerto ${PORT}`);
+
+  console.log(`Servidor ${PORT}`);
+
 });
