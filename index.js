@@ -1,9 +1,9 @@
 const express = require("express");
 const fs = require("fs");
-const httpProxy = require("http-proxy");
+const https = require("https");
+const http = require("http");
 
 const app = express();
-const proxy = httpProxy.createProxyServer({});
 
 const PORT = process.env.PORT || 3000;
 
@@ -12,7 +12,7 @@ const radiosData = JSON.parse(
   fs.readFileSync("./radios.json", "utf8")
 );
 
-// Inicio
+// Ruta principal
 app.get("/", (req, res) => {
   res.json({
     status: "online",
@@ -20,7 +20,7 @@ app.get("/", (req, res) => {
   });
 });
 
-// Stream dinámico
+// Proxy streaming
 app.get("/radio/:id", (req, res) => {
 
   const radio = radiosData.radios.find(
@@ -33,28 +33,32 @@ app.get("/radio/:id", (req, res) => {
     });
   }
 
-  proxy.web(req, res, {
-    target: radio.stream_url,
-    changeOrigin: true
+  const client = radio.stream_url.startsWith("https")
+    ? https
+    : http;
+
+  client.get(radio.stream_url, (stream) => {
+
+    res.writeHead(200, {
+      "Content-Type": stream.headers["content-type"] || "audio/mpeg",
+      "Access-Control-Allow-Origin": "*",
+      "icy-metaint": stream.headers["icy-metaint"] || ""
+    });
+
+    stream.pipe(res);
+
+  }).on("error", (err) => {
+
+    console.error(err);
+
+    res.status(500).json({
+      error: "Error conectando stream"
+    });
+
   });
-
-});
-
-// Manejo errores
-proxy.on("error", (err, req, res) => {
-
-  console.error(err);
-
-  res.writeHead(500, {
-    "Content-Type": "application/json"
-  });
-
-  res.end(JSON.stringify({
-    error: "Error conectando stream"
-  }));
 
 });
 
 app.listen(PORT, () => {
-  console.log(`Servidor iniciado puerto ${PORT}`);
+  console.log(`Servidor online puerto ${PORT}`);
 });
