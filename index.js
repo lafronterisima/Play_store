@@ -1,8 +1,10 @@
 const express = require("express");
-const axios = require("axios");
 const fs = require("fs");
+const httpProxy = require("http-proxy");
 
 const app = express();
+const proxy = httpProxy.createProxyServer({});
+
 const PORT = process.env.PORT || 3000;
 
 // Leer radios.json
@@ -10,24 +12,19 @@ const radiosData = JSON.parse(
   fs.readFileSync("./radios.json", "utf8")
 );
 
-// Ruta principal
+// Inicio
 app.get("/", (req, res) => {
   res.json({
     status: "online",
-    radios: radiosData.radios.map(radio => ({
-      id: radio.id,
-      name: radio.name,
-      endpoint: `/radio/${radio.id}`
-    }))
+    radios: radiosData.radios
   });
 });
 
-// Streaming dinámico
-app.get("/radio/:id", async (req, res) => {
-  const radioId = req.params.id;
+// Stream dinámico
+app.get("/radio/:id", (req, res) => {
 
   const radio = radiosData.radios.find(
-    r => r.id === radioId
+    r => r.id === req.params.id
   );
 
   if (!radio) {
@@ -36,26 +33,28 @@ app.get("/radio/:id", async (req, res) => {
     });
   }
 
-  try {
-    const response = await axios({
-      method: "get",
-      url: radio.stream_url,
-      responseType: "stream"
-    });
+  proxy.web(req, res, {
+    target: radio.stream_url,
+    changeOrigin: true
+  });
 
-    res.setHeader("Content-Type", "audio/mpeg");
+});
 
-    response.data.pipe(res);
+// Manejo errores
+proxy.on("error", (err, req, res) => {
 
-  } catch (error) {
-    console.error(error);
+  console.error(err);
 
-    res.status(500).json({
-      error: "Error conectando al streaming"
-    });
-  }
+  res.writeHead(500, {
+    "Content-Type": "application/json"
+  });
+
+  res.end(JSON.stringify({
+    error: "Error conectando stream"
+  }));
+
 });
 
 app.listen(PORT, () => {
-  console.log(`Servidor iniciado en puerto ${PORT}`);
+  console.log(`Servidor iniciado puerto ${PORT}`);
 });
