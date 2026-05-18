@@ -11,24 +11,27 @@
       "song_metadata": "true",
       "image_album_art": "true",
       "image_album_art_dynamic_background": "true",
-      "auto_play": "true"
+      "auto_play": "false"
     }
   ],
+
   "video": [
     {
       "channel_name": "La Fronterísima TV",
       "channel_url": "https://live20.bozztv.com/giatvplayout7/giatv-209411/playlist.m3u8",
-     "channel_description": "<style>p {margin-bottom: 1.2em; text-align: justify; font-size: 13px;}</style><p>La Fronterísima es una plataforma digital moderna que ofrece una propuesta musical diversa, conectando artistas hispanoamericanos y del mundo para brindar una experiencia sonora auténtica, envolvente y llena de emociones.</p>\n <p>Una alternativa musical diseñada para llegar al corazón de cada oyente, con ritmos que inspiran, motivan y acompañan cada momento del día.</p>\n <p>Descubre, comparte y vibra con los contenidos exclusivos, entrevistas, playlists y una programación variada e innovadora, disponible en cualquier lugar y en cualquier dispositivo las 24 horas, para que la música siempre te acompañe sin límites.</p>",
+      "channel_description": "La Fronterísima es una plataforma digital moderna que ofrece una propuesta musical diversa, conectando artistas hispanoamericanos y del mundo para brindar una experiencia sonora auténtica.",
       "channel_thumbnail": "https://i.postimg.cc/3wckw2kF/IMG-20251228-WA0012.jpg",
       "channel_vast_ads_tag_url": ""
     }
   ],
+
   "webview": [
     {
       "web_url": "https://lafronterisima.stream",
       "web_toolbar": "false"
     }
   ],
+
   "settings": [
     {
       "app_status": "1",
@@ -38,6 +41,7 @@
       "show_social_menu_on_video_page": "true"
     }
   ],
+
   "ads": [
     {
       "ad_status": "1",
@@ -48,9 +52,10 @@
       "admob_interstitial_id": "",
       "admob_native_id": "",
       "admob_app_open_id": "",
-      "interstitial_ad_interval": 0
+      "interstitial_ad_interval": "0"
     }
   ],
+
   "socials": [
     {
       "social_name": "Youtube",
@@ -69,4 +74,3 @@
     }
   ]
 }
-
