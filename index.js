@@ -8,13 +8,16 @@ const app = express();
 
 const PORT = process.env.PORT || 3000;
 
-let radiosData = { radio: [] };
+// ARRAY DIRECTO
+let radiosData = [];
 
 try {
 
-    const jsonPath = path.join(__dirname, "radios.json");
+    const jsonPath =
+        path.join(__dirname, "radios.json");
 
-    const raw = fs.readFileSync(jsonPath, "utf8");
+    const raw =
+        fs.readFileSync(jsonPath, "utf8");
 
     radiosData = JSON.parse(raw);
 
@@ -22,43 +25,63 @@ try {
 
 } catch (err) {
 
-    console.error("Error leyendo radio.json");
+    console.error("Error leyendo radios.json");
 
     console.error(err);
-
 }
 
+// ======================================
+// ROOT
+// ======================================
 app.get("/", (req, res) => {
 
     res.json({
-        status: "online",
-        radios: radiosData.radio
+        status: "online"
     });
 
 });
 
+// ======================================
+// LISTA RADIOS
+// ======================================
+app.get("/radios", (req, res) => {
+
+    res.json(radiosData);
+
+});
+
+// ======================================
+// STREAM RADIO
+// ======================================
 app.get("/radio/:id", (req, res) => {
 
-    const radio = radiosData.radio[0];
+    const id =
+        parseInt(req.params.id);
+
+    const radio =
+        radiosData.find(r => r.id === id);
 
     if (!radio) {
 
         return res.status(404).json({
             error: "Radio no encontrada"
         });
-
     }
 
-    const streamUrl = radio.radio_url;
+    const streamUrl = radio.url;
 
-    const client = streamUrl.startsWith("https")
-        ? https
-        : http;
+    const client =
+        streamUrl.startsWith("https")
+            ? https
+            : http;
 
     client.get(streamUrl, (stream) => {
 
         res.writeHead(200, {
-            "Content-Type": stream.headers["content-type"] || "audio/mpeg",
+            "Content-Type":
+                stream.headers["content-type"]
+                || "audio/mpeg",
+
             "Access-Control-Allow-Origin": "*"
         });
 
@@ -78,6 +101,8 @@ app.get("/radio/:id", (req, res) => {
 
 app.listen(PORT, () => {
 
-    console.log(`Servidor online puerto ${PORT}`);
+    console.log(
+        `Servidor online puerto ${PORT}`
+    );
 
 });
