@@ -12,7 +12,7 @@ let radiosData = { radio: [] };
 
 try {
 
-    const jsonPath = path.join(__dirname, "radio.json");
+    const jsonPath = path.join(__dirname, "radios.json");
 
     const raw = fs.readFileSync(jsonPath, "utf8");
 
