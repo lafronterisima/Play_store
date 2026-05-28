@@ -1,17 +1,17 @@
 [
   {
     "id": 1,
-    "name": "La Fronterísima Streaming",
+    "name": "La Fronterísima",
     "url": "https://virtual5.emisorasvirtuales.com/listen/la_fronterisima/live",
     "genre": "Regional",
     "country": "Colombia",
     "website": "https://lafronterisima.stream",
     "logo": "https://example.com/logo.png",
     "description": "La Fronterísima Streaming, la radio digital que une fronteras y conecta culturas con música, entretenimiento y la mejor energía en vivo las 24 horas.",
-    "facebook": "https://facebook.com/lafronterisimastreaming",
-    "instagram": "https://instagram.com/lafronterisimastreaming",
-    "youtube": "https://youtube.com/@lafronterisimastreaming",
-    "tiktok": "https://tiktok.com/@lafronterisimastreaming",
+    "facebook": "https://facebook.com/fronterisima.stream",
+    "instagram": "https://instagram.com/la_fronterisima",
+    "youtube": "https://youtube.com/@lafronterisima",
+    "tiktok": "https://tiktok.com/@lafronterisima",
     "contact": "3170340249",
     "email": "lafronterisima@gmail.com",
     "developer": "FronteApp"
