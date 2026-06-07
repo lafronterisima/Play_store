@@ -9,250 +9,420 @@ const PORT = process.env.PORT || 3000;
 
 let radiosData = [];
 
-// Cargar radios.json de forma segura
+// ======================================
+// CARGAR JSON
+// ======================================
 try {
     const jsonPath = path.join(__dirname, "radios.json");
-    if (fs.existsSync(jsonPath)) {
-        const raw = fs.readFileSync(jsonPath, "utf8");
-        radiosData = JSON.parse(raw);
-        console.log(`✅ JSON cargado correctamente: ${radiosData.length} emisoras`);
-    } else {
-        console.warn("⚠️ radios.json no encontrado, usando datos por defecto");
-        radiosData = [];
+
+    const raw = fs.readFileSync(jsonPath, "utf8");
+
+    radiosData = JSON.parse(raw);
+
+    if (!Array.isArray(radiosData)) {
+        throw new Error("El archivo radios.json debe contener un array");
     }
+
+    console.log(
+        `✅ JSON cargado correctamente (${radiosData.length} emisoras)`
+    );
+
 } catch (err) {
-    console.error("❌ Error leyendo radios.json:", err.message);
-    radiosData = [];
+
+    console.error("❌ Error leyendo radios.json");
+    console.error(err);
+
+    process.exit(1);
 }
 
-// Middleware para logging de peticiones
+// ======================================
+// LOGGING
+// ======================================
 app.use((req, res, next) => {
+
     console.log(`📡 ${req.method} ${req.url}`);
+
     next();
+
 });
 
+// ======================================
 // ROOT
+// ======================================
 app.get("/", (req, res) => {
+
     res.json({
         status: "online",
-        message: "API de Radio Online",
+        message: "API Radio Online",
         endpoints: {
-            radios: "/radio",
-            radio_por_id: "/radio/:id"
+            radios: "/radios",
+            radio: "/radio/:id"
         }
     });
+
 });
 
+// ======================================
 // LISTA DE RADIOS
-app.get("/radio", (req, res) => {
-    if (radiosData.length === 0) {
-        return res.status(404).json({ error: "No hay emisoras disponibles" });
-    }
+// ======================================
+app.get("/radios", (req, res) => {
+
     res.json(radiosData);
+
 });
 
-// STREAM RADIO (SEGURO CONTRA FUGAS Y REDIRECCIONES)
+// ======================================
+// STREAM DE RADIO
+// ======================================
 app.get("/radio/:id", (req, res) => {
-    const id = parseInt(req.params.id);
-    const radio = radiosData.find(r => r.id === id);
+
+    const id = Number(req.params.id);
+
+    const radio =
+        radiosData.find(r => Number(r.id) === id);
 
     if (!radio) {
-        return res.status(404).json({ error: "Radio no encontrada" });
+
+        return res.status(404).json({
+            error: "Radio no encontrada"
+        });
+
     }
 
     if (!radio.url) {
-        return res.status(400).json({ error: "La emisora no tiene URL válida" });
+
+        return res.status(400).json({
+            error: "La emisora no tiene URL válida"
+        });
+
     }
 
-    console.log(`🎵 Transmitiendo: ${radio.name || `Radio ID ${id}`} - ${radio.url}`);
+    console.log(
+        `🎵 Conectando: ${radio.name || id}`
+    );
 
-    let isClientConnected = true;
     let proxyReq = null;
     let stream = null;
+    let clientConnected = true;
 
-    // Función para limpiar recursos
+    // ==================================
+    // LIMPIEZA
+    // ==================================
     const cleanup = () => {
-        if (stream) {
+
+        if (stream && !stream.destroyed) {
             stream.destroy();
-            stream = null;
         }
-        if (proxyReq) {
+
+        if (proxyReq && !proxyReq.destroyed) {
             proxyReq.destroy();
-            proxyReq = null;
         }
+
+        stream = null;
+        proxyReq = null;
+
     };
 
-    // Función para enviar error
-    const sendError = (statusCode, errorMessage) => {
-        if (!res.headersSent && isClientConnected) {
-            res.status(statusCode).json({ error: errorMessage });
+    // ==================================
+    // ERROR CONTROLADO
+    // ==================================
+    const sendError = (status, message) => {
+
+        if (!res.headersSent && clientConnected) {
+
+            res.status(status).json({
+                error: message
+            });
+
         }
+
         cleanup();
+
     };
 
-    // Función para conectar al stream
-    const connectToStream = (streamUrl, redirectCount = 0) => {
-        // Evitar bucles infinitos
+    // ==================================
+    // CONECTAR STREAM
+    // ==================================
+    const connectToStream = (
+        streamUrl,
+        redirectCount = 0
+    ) => {
+
+        if (!clientConnected) {
+            return cleanup();
+        }
+
         if (redirectCount > 5) {
-            console.error(`❌ Radio ID ${id} superó el límite de redirecciones`);
-            sendError(502, "Demasiadas redirecciones en la emisora origen");
-            return;
+
+            return sendError(
+                502,
+                "Demasiadas redirecciones"
+            );
+
         }
 
-        // Verificar cliente conectado
-        if (!isClientConnected) {
-            cleanup();
-            return;
-        }
+        let parsedUrl;
 
-        // Validar URL
-        let url;
         try {
-            url = new URL(streamUrl);
+
+            parsedUrl = new URL(streamUrl);
+
         } catch (err) {
-            console.error(`❌ URL inválida para radio ID ${id}: ${streamUrl}`);
-            sendError(400, "URL de emisora inválida");
-            return;
+
+            return sendError(
+                400,
+                "URL inválida"
+            );
+
         }
 
-        const client = url.protocol === "https:" ? https : http;
+        const client =
+            parsedUrl.protocol === "https:"
+                ? https
+                : http;
 
-        const options = {
-            hostname: url.hostname,
-            port: url.port || (url.protocol === "https:" ? 443 : 80),
-            path: url.pathname + url.search,
+        proxyReq = client.request({
+            hostname: parsedUrl.hostname,
+            port: parsedUrl.port || (
+                parsedUrl.protocol === "https:"
+                    ? 443
+                    : 80
+            ),
+            path: parsedUrl.pathname + parsedUrl.search,
             method: "GET",
+            timeout: 10000,
             headers: {
-                "User-Agent": "Mozilla/5.0 (Radio-Proxy/1.0)",
+                "User-Agent": "Mozilla/5.0 (RadioProxy)",
+                "Icy-MetaData": "1",
                 "Accept": "*/*",
-                "Accept-Encoding": "identity", // Evitar compresión
+                "Accept-Encoding": "identity",
                 "Connection": "close"
-            },
-            timeout: 10000 // 10 segundos de timeout
-        };
-
-        proxyReq = client.request(options, (response) => {
-            // Manejar redirecciones
-            if ([301, 302, 307, 308].includes(response.statusCode) && response.headers.location) {
-                console.log(`🔄 Redirigiendo radio ID ${id} [Salto ${redirectCount + 1}] → ${response.headers.location}`);
-                response.resume(); // Vaciar buffer
-                cleanup();
-                return connectToStream(response.headers.location, redirectCount + 1);
             }
 
-            // Error HTTP
-            if (response.statusCode >= 400) {
-                console.error(`❌ Error HTTP ${response.statusCode} para radio ID ${id}`);
+        }, (response) => {
+
+            // ==========================
+            // REDIRECCIONES
+            // ==========================
+            if (
+                [301, 302, 307, 308]
+                    .includes(response.statusCode)
+                &&
+                response.headers.location
+            ) {
+
+                const nextUrl =
+                    new URL(
+                        response.headers.location,
+                        streamUrl
+                    ).href;
+
+                console.log(
+                    `🔄 Redirección ${redirectCount + 1}: ${nextUrl}`
+                );
+
                 response.resume();
-                sendError(response.statusCode, `La emisora origen devolvió error ${response.statusCode}`);
-                return;
+
+                return connectToStream(
+                    nextUrl,
+                    redirectCount + 1
+                );
+
             }
 
-            // Verificar contenido
-            const contentType = response.headers["content-type"] || "audio/mpeg";
-            if (!contentType.includes("audio")) {
-                console.warn(`⚠️ Content-Type inesperado: ${contentType} para radio ID ${id}`);
+            // ==========================
+            // ERROR HTTP
+            // ==========================
+            if (response.statusCode >= 400) {
+
+                response.resume();
+
+                return sendError(
+                    response.statusCode,
+                    `Error HTTP ${response.statusCode}`
+                );
+
             }
 
-            // Configurar respuesta
+            const contentType =
+                response.headers["content-type"]
+                || "audio/mpeg";
+
             res.writeHead(200, {
                 "Content-Type": contentType,
                 "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET",
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-                "Connection": "keep-alive"
+                "Cache-Control": "no-cache",
+                "Transfer-Encoding": "chunked"
             });
 
             stream = response;
 
-            // Manejar errores del stream
             stream.on("error", (err) => {
-                console.error(`❌ Error en stream de radio ID ${id}:`, err.message);
-                if (!res.headersSent && isClientConnected) {
-                    res.end();
-                }
+
+                console.error(
+                    "❌ Error stream:",
+                    err.message
+                );
+
                 cleanup();
+
             });
 
-            // Pipe al cliente
             stream.pipe(res);
+
         });
 
-        // Timeout
+        // ==========================
+        // TIMEOUT
+        // ==========================
         proxyReq.setTimeout(10000, () => {
-            console.error(`❌ Timeout conectando a radio ID ${id}`);
+
+            console.error(
+                `❌ Timeout radio ${id}`
+            );
+
             proxyReq.destroy();
-            sendError(504, "Tiempo de espera agotado con la emisora");
+
+            sendError(
+                504,
+                "Tiempo de espera agotado"
+            );
+
         });
 
-        // Manejar errores de conexión
+        // ==========================
+        // ERROR CONEXIÓN
+        // ==========================
         proxyReq.on("error", (err) => {
-            console.error(`❌ Error de conexión para radio ID ${id}:`, err.message);
-            sendError(502, "Error conectando con la emisora origen");
+
+            console.error(
+                "❌ Error conexión:",
+                err.message
+            );
+
+            sendError(
+                502,
+                "Error conectando con la emisora"
+            );
+
         });
 
-        // Finalizar request
         proxyReq.end();
+
     };
 
-    // Manejar desconexión del cliente
+    // ==================================
+    // CLIENTE DESCONECTADO
+    // ==================================
     req.on("close", () => {
-        if (isClientConnected) {
-            console.log(`👋 Cliente desconectado de radio ID ${id}`);
-            isClientConnected = false;
-            cleanup();
-        }
-    });
 
-    // Manejar error del request
-    req.on("error", (err) => {
-        console.error(`❌ Error en request de radio ID ${id}:`, err.message);
-        isClientConnected = false;
+        clientConnected = false;
+
+        console.log(
+            `👋 Cliente desconectado radio ${id}`
+        );
+
         cleanup();
+
     });
 
-    // Iniciar conexión
+    req.on("error", (err) => {
+
+        console.error(
+            "❌ Error request:",
+            err.message
+        );
+
+        clientConnected = false;
+
+        cleanup();
+
+    });
+
     connectToStream(radio.url);
+
 });
 
-// Ruta para verificar estado de una radio específica (HEAD request)
+// ======================================
+// HEAD RADIO
+// ======================================
 app.head("/radio/:id", (req, res) => {
-    const id = parseInt(req.params.id);
-    const radio = radiosData.find(r => r.id === id);
 
-    if (!radio || !radio.url) {
-        return res.status(404).send();
+    const id = Number(req.params.id);
+
+    const radio =
+        radiosData.find(
+            r => Number(r.id) === id
+        );
+
+    if (!radio) {
+
+        return res.sendStatus(404);
+
     }
-    res.status(200).send();
+
+    res.sendStatus(200);
+
 });
 
-// Manejo de errores global
+// ======================================
+// ERROR GLOBAL
+// ======================================
 app.use((err, req, res, next) => {
-    console.error("❌ Error global:", err.message);
-    res.status(500).json({ error: "Error interno del servidor" });
+
+    console.error(
+        "❌ Error global:",
+        err.stack || err.message
+    );
+
+    res.status(500).json({
+        error: "Error interno del servidor"
+    });
+
 });
 
-// Iniciar servidor
+// ======================================
+// INICIAR SERVIDOR
+// ======================================
 const server = app.listen(PORT, () => {
-    console.log(`🚀 Servidor online en puerto ${PORT}`);
-    console.log(`📻 API disponibles:`);
-    console.log(`   - GET  /radio      → Lista de emisoras`);
-    console.log(`   - GET  /radio/:id  → Stream de emisora`);
+
+    console.log(
+        `🚀 Servidor online en puerto ${PORT}`
+    );
+
+    console.log(
+        `📻 Lista radios: http://localhost:${PORT}/radios`
+    );
+
 });
 
-// Manejo de cierre graceful
-process.on("SIGTERM", () => {
-    console.log("🛑 Recibido SIGTERM, cerrando servidor...");
-    server.close(() => {
-        console.log("✅ Servidor cerrado");
-        process.exit(0);
-    });
-});
+// ======================================
+// APAGADO LIMPIO
+// ======================================
+const gracefulShutdown = (signal) => {
 
-process.on("SIGINT", () => {
-    console.log("🛑 Recibido SIGINT, cerrando servidor...");
+    console.log(
+        `🛑 ${signal} recibido, cerrando servidor...`
+    );
+
     server.close(() => {
-        console.log("✅ Servidor cerrado");
+
+        console.log(
+            "✅ Servidor cerrado correctamente"
+        );
+
         process.exit(0);
+
     });
-});
+
+};
+
+process.on(
+    "SIGTERM",
+    () => gracefulShutdown("SIGTERM")
+);
+
+process.on(
+    "SIGINT",
+    () => gracefulShutdown("SIGINT")
+);
